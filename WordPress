@@ -1,0 +1,183 @@
+function wpdesk_add_shirt_sizes_field_to_product_data( $product_data_tabs ) {
+
+    $product_data_tabs['shirt_sizes'] = array(
+        'label' => __( 'Shirt Sizes', 'wpdesk' ),
+        'target' => 'shirt_sizes_product_data',
+        'class' => array(),
+    );
+
+    return $product_data_tabs;
+}
+add_filter( 'woocommerce_product_data_tabs', 'wpdesk_add_shirt_sizes_field_to_product_data', 10, 1 );
+
+function wpdesk_add_shirt_sizes_field_to_product_data_panel() {
+
+    global $woocommerce, $post;
+
+    echo '<input type="hidden" name="shirt_sizes_nonce" value="' . wp_create_nonce() . '">';
+
+    woocommerce_wp_text_input( array(
+        'id' => '_shirt_sizes',
+        'label' => __( 'Shirt Sizes', 'wpdesk' ),
+        'placeholder' => __( 'Enter shirt sizes', 'wpdesk' ),
+        'desc_tip' => true,
+        'description' => __( 'Enter the shirt sizes for this product.', 'wpdesk' ),
+        'type' => 'text'
+    ));
+}
+add_action( 'woocommerce_product_data_panels', 'wpdesk_add_shirt_sizes_field_to_product_data_panel' );
+
+function wpdesk_save_shirt_sizes_field_value( $post_id ) {
+
+    $product = wc_get_product( $post_id );
+
+    $data = $_POST;
+
+    if ( ! isset( $data['shirt_sizes_nonce'] ) || ! wp_verify_nonce( $data['shirt_sizes_nonce'] ) ) {
+        return;
+    }
+
+    if ( isset( $data['_shirt_sizes'] ) ) {
+        $product->update_meta_data( '_shirt_sizes', sanitize_text_field( $data['_shirt_sizes'] ) );
+    }
+
+    $product->save();
+}
+add_action( 'woocommerce_process_product_meta', 'wpdesk_save_shirt_sizes_field_value', 10, 1 );
+
+function wpdesk_show_fields_multiple_times( $checkout ) {
+
+    global $woocommerce;
+
+    $cart_contents = $woocommerce->cart->get_cart();
+
+    foreach ( $cart_contents as $cart_item_key => $cart_item ) {
+
+        $quantity = $cart_item['quantity'];
+
+        for ( $i = 1; $i <= intval($quantity); ++$i) {
+
+            // Display person number before each loop
+            echo '<h4 style="margin-top:20px; border-top:2px solid whitesmoke; padding-top:15px; margin-bottom:0px;
+			"><strong>'.__('Person').':</strong> '.$i.'</h4>';
+
+            woocommerce_form_field( 'shirt_sizes_' . 
+$cart_item_key . '_' . 
+$i, array(
+                "type"          => "text",
+                "class"         => array("form-row-wide"),
+                "label"         => __( "Enter shirt sizes per Platinum All Inclusive VIP Person (Unisex sizes XS, S, L, XL, 2XL, 3XL, 4XL, or 5XL) 
+
+				", "wpdesk" ),
+                "placeholder"   => __( "Enter shirt sizes", "wpdesk" ),
+                "required"      => true,
+            ),$checkout->get_value("shirt_sizes_" . 
+$cart_item_key . "_" . 
+$i ));
+
+            woocommerce_form_field( 'vegetarian_meal_option_' . 
+$cart_item_key . '_' . 
+$i, array(
+                "type"          => "radio",
+                "class"         => array("form-row-wide"),
+                "label"         => __( "Please tell us if you require a vegetarian meal option for brunch and hors d'oeuvre? ", "wpdesk" ),
+                "options"       => array(
+                    "yes"   => __( "Yes", "wpdesk"),
+                    "no"   => __( "No", "wpdesk"),
+                ),
+                "required"      => true,
+            ),$checkout->get_value("vegetarian_meal_option_" . 
+$cart_item_key . "_" . 
+$i ));
+
+            woocommerce_form_field( 'vegetarian_brunch_meals_' . 
+$cart_item_key . '_' . 
+$i, array(
+                "type"          => "textarea",
+                "class"         => array("form-row-wide"),
+                "label"         => __( "How many vegetarian brunch meals do you require on this order? There will be one brunch per person. ", 
+"wpdesk" ),
+                "placeholder"   => __( "Enter number of vegetarian brunch meals", 
+"wpdesk" ),
+                "required"      => true,
+            ),$checkout->get_value("vegetarian_brunch_meals_" . 
+$cart_item_key . "_" . 
+$i )); 
+        }
+    }
+}
+
+add_action( "woocommerce_before_order_notes", 
+"wpdesk_show_fields_multiple_times" );
+function wpdesk_save_fields_values_from_checkout_page( $order_id ) {
+
+    global $woocommerce;
+
+    $cart_contents = $woocommerce->cart->get_cart();
+
+    foreach ( $cart_contents as $cart_item_key => $cart_item ) {
+
+        $quantity = $cart_item['quantity'];
+
+        for ( $i = 1; $i <= intval($quantity); ++$i) {
+
+            if ( ! empty( $_POST['shirt_sizes_' . 
+$cart_item_key . '_' . 
+$i] ) ) {
+
+                update_post_meta( 
+                    $order_id, 
+                    sprintf( '%s - Shirt Sizes %d', esc_html( get_the_title($cart_item['product_id']) ), ($i + 1) ), 
+                    sanitize_text_field( $_POST['shirt_sizes_' . 
+$cart_item_key . '_' . 
+$i] )
+                );
+            }
+
+if ( ! empty( $_POST['vegetarian_brunch_meals_' . 
+$cart_item_key . '_' . 
+$i] ) ) {
+
+    update_post_meta( 
+        $order_id, 
+        sprintf( '%s - Vegetarian Brunch Meals %d', esc_html( get_the_title($cart_item['product_id']) ), ($i + 1) ), 
+        sanitize_text_field( $_POST['vegetarian_brunch_meals_' . 
+$cart_item_key . '_' . 
+$i] )
+    );
+}
+
+}
+
+}
+
+}
+
+add_action( 'woocommerce_checkout_update_order_meta', 'wpdesk_save_fields_values_from_checkout_page', 10, 1 );
+
+function wpdesk_display_fields_values_on_order_edit_page( $order ){
+
+    $items = $order->get_items();
+
+    foreach ( $items as $item_id => $item ) {
+
+        $quantity = wc_get_order_item_meta($item_id, '_qty', true);
+
+        for ( $i = 1; $i <= intval($quantity); ++$i) {
+
+            if ($value = get_post_meta($order->get_id(), sprintf('%s - Shirt Sizes %d', esc_html($item->get_name()), ($i + 1)), true)) {
+                echo '<p><strong>'.__('Shirt Sizes').':</strong> '.$value.'</p>';
+            }
+
+            if ($value = get_post_meta($order->get_id(), sprintf('%s - Vegetarian Meal Option %d', esc_html($item->get_name()), ($i + 1)), true)) {
+                echo '<p><strong>'.__('Vegetarian Meal Option').':</strong> '.$value.'</p>';
+            }
+
+            if ($value = get_post_meta($order->get_id(), sprintf('%s - Vegetarian Brunch Meals %d', esc_html($item->get_name()), ($i + 1)), true)) {
+                echo '<p><strong>'.__('Vegetarian Brunch Meals').':</strong> '.$value.'</p>';
+            }
+        }
+
+    }
+}
+add_action( 'woocommerce_admin_order_data_after_billing_address', 'wpdesk_display_fields_values_on_order_edit_page', 10, 1 );
